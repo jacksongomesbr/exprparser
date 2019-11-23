@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Analisador de expressões matemáticas</title>
+    <!-- require.js obtido daqui: https://github.com/antlr/antlr4/blob/master/runtime/JavaScript/src/lib/require.js -->
+    <script src="lib/require.js"></script>
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+</head>
+
+<body>
+
+    <div>
+        <textarea id="input"></textarea>
+    </div>
+    <div>
+        <button onclick="calcular()">Calcular</button>
+        <button onclick="limpar()">Limpar</button>
+    </div>
+    <ul id="resultado"></ul>
+
+    <script type="text/javascript">
+        function limpar() {
+            $('#input').val('');
+            $('#resultado').empty();
+        }
+        function calcular() {
+            var input = $('#input').val();
+            if (input.length == '') {
+                alert('Por favor, forneça expressões como entrada');
+                return;
+            }
+
+            $('#resultado').empty();
+
+            var antlr4 = require('./antlr4/index');
+            var ExprLexer = require('./parser/ExprLexer').ExprLexer;
+            var ExprParser = require('./parser/ExprParser').ExprParser;
+            var HtmlExprListener = require('./parser/HtmlExprListener').HtmlExprListener;
+            var HtmlErrorListener = require('./parser/HtmlErrorListener').HtmlErrorListener;
+
+            var chars = new antlr4.InputStream(input);
+            var lexer = new ExprLexer(chars);
+            var tokens = new antlr4.CommonTokenStream(lexer);
+            var parser = new ExprParser(tokens);
+            // parser.removeErrorListeners();
+
+            var errorListener = new HtmlErrorListener();
+            parser.addErrorListener(errorListener);
+
+            parser.buildParseTrees = true;
+            var tree = parser.prog();
+            var htmlExpr = new HtmlExprListener();
+            antlr4.tree.ParseTreeWalker.DEFAULT.walk(htmlExpr, tree);
+
+            if (errorListener.errors.length == 0) {
+                for (var i = 0; i < htmlExpr.values.length; i++) {
+                    var item = htmlExpr.values[i];
+                    $('#resultado').append('<li>' + item.expr + ' = ' + item.value + '</li>');
+                }
+            } else {
+                var msg = 'Não foi possível calcular a partir da entrada\n\n';
+                for (var i = 0; i < errorListener.errors.length; i++) {
+                    var error = errorListener.errors[i];
+                    msg += 'Linha:  ' + error.line + '\n'
+                        + 'Coluna: ' + error.column + '\n'
+                        + 'Erro:   ' + error.msg + '\n\n';
+                }
+                alert(msg);
+            }
+        }
+    </script>
+
+</body>
+
+</html>
